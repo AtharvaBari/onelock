@@ -75,8 +75,8 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
-    // CameraX for Intruder Selfie Capture
-    val cameraxVersion = "1.3.3"
+    // CameraX for Intruder Selfie Capture (1.4.1+ supports 16 KB page alignment)
+    val cameraxVersion = "1.4.1"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
