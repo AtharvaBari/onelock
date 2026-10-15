@@ -53,6 +53,10 @@ import com.onelock.app.ui.theme.OneUITextSecondary
 import com.onelock.app.ui.theme.OneUITextTertiary
 import com.onelock.app.util.PermissionUtils
 
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.onelock.app.engine.LockState
+
 @Composable
 fun ProtectionShieldTab(
     shieldConfig: ProtectionShieldConfig,
@@ -74,13 +78,14 @@ fun ProtectionShieldTab(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .padding(top = 10.dp, bottom = 4.dp)
             ) {
                 Text(
@@ -162,10 +167,12 @@ fun ProtectionShieldTab(
                 isPermissionGranted = isCameraGranted,
                 permissionActionText = "Grant Camera Access",
                 onGrantPermission = {
+                    LockState.isLaunchingPermissionIntent = true
                     cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                 },
                 onCheckedChange = { checked ->
                     if (checked && !isCameraGranted) {
+                        LockState.isLaunchingPermissionIntent = true
                         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                     } else {
                         onSaveShieldConfig(shieldConfig.copy(intruderSelfieEnabled = checked))
@@ -175,7 +182,7 @@ fun ProtectionShieldTab(
         }
 
         item {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.navigationBarsPadding().height(100.dp))
         }
     }
 }

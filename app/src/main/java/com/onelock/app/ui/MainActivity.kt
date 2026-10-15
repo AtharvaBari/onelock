@@ -104,6 +104,9 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Enable edge-to-edge drawing so content flows behind transparent system bars
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+
         // Enable FLAG_SECURE on MainActivity to protect dashboard contents from recents screenshots
         window.setFlags(
             WindowManager.LayoutParams.FLAG_SECURE,
@@ -137,6 +140,10 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (com.onelock.app.engine.LockState.isLaunchingPermissionIntent) {
+            com.onelock.app.engine.LockState.isLaunchingPermissionIntent = false
+        }
+
         viewModel.refreshPermissions()
         viewModel.refreshLogs()
 
@@ -148,8 +155,10 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
-        // Reset self-authentication on exit so reopening requires re-authentication
-        viewModel.setSelfUnlocked(false)
+        // If user is just opening system permission settings, don't self-lock mid-setup
+        if (!com.onelock.app.engine.LockState.isLaunchingPermissionIntent) {
+            viewModel.setSelfUnlocked(false)
+        }
     }
 
     private fun triggerSelfBiometricPrompt() {

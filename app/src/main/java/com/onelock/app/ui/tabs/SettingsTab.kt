@@ -63,6 +63,9 @@ import com.onelock.app.ui.theme.OneUITextSecondary
 import com.onelock.app.ui.theme.OneUITextTertiary
 import com.onelock.app.util.PermissionUtils
 
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+
 @Composable
 fun SettingsTab(
     globalConfig: GlobalLockConfig,
@@ -78,7 +81,7 @@ fun SettingsTab(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Header
@@ -86,6 +89,7 @@ fun SettingsTab(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .padding(top = 10.dp, bottom = 4.dp)
             ) {
                 Text(
@@ -485,7 +489,7 @@ fun SettingsTab(
         }
 
         item {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.navigationBarsPadding().height(100.dp))
         }
     }
 

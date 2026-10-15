@@ -60,6 +60,8 @@
             android:turnScreenOn="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustNothing"
+            android:resizeableActivity="false"
+            android:supportsPictureInPicture="false"
             android:theme="@style/Theme.OneLock.LockScreen" />
 
         <!-- Accessibility Service Engine -->

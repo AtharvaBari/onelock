@@ -81,6 +81,10 @@ import com.onelock.app.ui.theme.OneUITextTertiary
 import com.onelock.app.ui.theme.OneUIWarning
 import com.onelock.app.util.PermissionUtils
 
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.lazy.items
+
 @Composable
 fun HomeTab(
     uiState: MainUiState,
@@ -95,15 +99,18 @@ fun HomeTab(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Collapsible One UI Header with live protection badge
+        // 1. One UI Large Header (scrolls naturally off-screen)
         item {
-            OneUIHomeHeader(isSystemProtected = isSystemProtected)
+            OneUIHomeHeader(
+                isSystemProtected = isSystemProtected,
+                modifier = Modifier.statusBarsPadding()
+            )
         }
 
-        // Top Status Banner Card (only visible if permission is missing)
+        // 2. Top Status Banner Card (only visible if permission is missing)
         val needsAction = !uiState.isAccessibilityEnabled || !uiState.isOverlayGranted || !uiState.isBatteryOptimizationsIgnored
         if (needsAction) {
             item {
@@ -118,7 +125,7 @@ fun HomeTab(
             }
         }
 
-        // 2x2 Bento Summary Grid (Locked, Total, Masked, Intruders)
+        // 3. 2x2 Bento Summary Grid (Locked, Total, Masked, Intruders)
         item {
             BentoSummaryGrid(
                 lockedCount = uiState.lockedPackageNames.size,
@@ -128,23 +135,21 @@ fun HomeTab(
             )
         }
 
-        // Search Bar
+        // 4. Search Bar and Filter Chips (scroll naturally with LazyColumn)
         item {
-            PillSearchBar(
-                query = uiState.searchQuery,
-                onQueryChange = onSearchQueryChange
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                PillSearchBar(
+                    query = uiState.searchQuery,
+                    onQueryChange = onSearchQueryChange
+                )
+                CategorizedFilterChipsRow(
+                    activeFilter = uiState.activeFilter,
+                    onSelectFilter = onFilterSelect
+                )
+            }
         }
 
-        // Horizontally Scrollable Categorized Filter Chips
-        item {
-            CategorizedFilterChipsRow(
-                activeFilter = uiState.activeFilter,
-                onSelectFilter = onFilterSelect
-            )
-        }
-
-        // App List Section
+        // 5. App List Section (Individual items recycled in LazyColumn)
         if (uiState.isLoading) {
             item {
                 Box(
@@ -164,28 +169,61 @@ fun HomeTab(
                 )
             }
         } else {
-            item {
-                AppsGroupedCard(
-                    apps = uiState.filteredApps,
-                    lockedPackages = uiState.lockedPackageNames,
-                    getAppIcon = getAppIcon,
-                    onAppRowClick = onAppRowClick,
-                    onToggleLock = onToggleLock
+            items(
+                items = uiState.filteredApps,
+                key = { it.packageName }
+            ) { app ->
+                val isLocked = uiState.lockedPackageNames.contains(app.packageName)
+                val iconDrawable = remember(app.packageName) { getAppIcon(app.packageName) }
+
+                AppRowCardItem(
+                    app = app,
+                    icon = iconDrawable,
+                    isLocked = isLocked,
+                    onRowClick = { onAppRowClick(app) },
+                    onToggle = { onToggleLock(app.packageName) }
                 )
             }
         }
 
         // Extra spacing so bottom nav bar never obscures content
         item {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.navigationBarsPadding().height(100.dp))
         }
     }
 }
 
 @Composable
-private fun OneUIHomeHeader(isSystemProtected: Boolean) {
+private fun AppRowCardItem(
+    app: AppInfo,
+    icon: Drawable?,
+    isLocked: Boolean,
+    onRowClick: () -> Unit,
+    onToggle: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = OneUISurfaceCard,
+        border = androidx.compose.foundation.BorderStroke(1.dp, OneUIDivider)
+    ) {
+        AppItemRow(
+            app = app,
+            icon = icon,
+            isLocked = isLocked,
+            onRowClick = onRowClick,
+            onToggle = onToggle
+        )
+    }
+}
+
+@Composable
+private fun OneUIHomeHeader(
+    isSystemProtected: Boolean,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 10.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,

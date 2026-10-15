@@ -7,7 +7,9 @@ import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.onelock.app.OneLockApp
@@ -17,6 +19,9 @@ import java.util.UUID
 
 object IntruderCaptureManager {
     private const val TAG = "IntruderCaptureManager"
+
+    @Volatile
+    var activePreviewView: PreviewView? = null
 
     fun captureIntruderSelfie(
         context: Context,
@@ -52,9 +57,16 @@ object IntruderCaptureManager {
                     .build()
 
                 cameraProvider.unbindAll()
+
+                val preview = Preview.Builder().build()
+                activePreviewView?.surfaceProvider?.let { surfaceProvider ->
+                    preview.setSurfaceProvider(surfaceProvider)
+                }
+
                 cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
+                    preview,
                     imageCapture
                 )
 
@@ -92,3 +104,4 @@ object IntruderCaptureManager {
         }, ContextCompat.getMainExecutor(context))
     }
 }
+

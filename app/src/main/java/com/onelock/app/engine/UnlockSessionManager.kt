@@ -29,6 +29,7 @@ object UnlockSessionManager {
         activeUnlockedSessions.add(packageName)
         unlockTimestamps[packageName] = now
         appExitTimestamps.remove(packageName)
+        PrivacyOverlayManager.dismissActiveOverlay()
     }
 
     /**

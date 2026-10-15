@@ -62,6 +62,8 @@ import com.onelock.app.ui.theme.OneUITextSecondary
 import com.onelock.app.ui.theme.OneUITextTertiary
 import java.io.File
 import java.text.SimpleDateFormat
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import java.util.Date
 import java.util.Locale
 
@@ -74,184 +76,269 @@ fun VaultLogsTab(
     onDeleteNotification: (String) -> Unit,
     onClearNotifications: () -> Unit
 ) {
+    val context = LocalContext.current
     var selectedSubTab by remember { mutableIntStateOf(0) } // 0: Intruder Snaps, 1: Masked Notifications
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 20.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Top Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Vault & Logs",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = OneUITextPrimary,
-                    letterSpacing = (-0.5).sp
-                )
-                Text(
-                    text = "Security Feed & Intercepted Data",
-                    fontSize = 13.sp,
-                    color = OneUITextSecondary
-                )
+        // 1. Top Header (scrolls naturally with list)
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = 10.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Vault & Logs",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = OneUITextPrimary,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Security Feed & Intercepted Data",
+                        fontSize = 13.sp,
+                        color = OneUITextSecondary
+                    )
+                }
             }
         }
 
-        // Sub-Tab Switcher Pills
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(50))
-                .background(OneUISurfaceCard)
-                .border(1.dp, OneUIDivider, RoundedCornerShape(50))
-                .padding(4.dp)
-        ) {
-            Box(
+        // 2. Sub-Tab Switcher Pills
+        item {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .clip(RoundedCornerShape(50))
-                    .background(if (selectedSubTab == 0) OneUIAccent else Color.Transparent)
-                    .clickable { selectedSubTab = 0 }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
+                    .background(OneUISurfaceCard)
+                    .border(1.dp, OneUIDivider, RoundedCornerShape(50))
+                    .padding(4.dp)
             ) {
-                Text(
-                    text = "Intruders (${intruderLogs.size})",
-                    fontSize = 13.sp,
-                    fontWeight = if (selectedSubTab == 0) FontWeight.Bold else FontWeight.Medium,
-                    color = if (selectedSubTab == 0) Color.White else OneUITextSecondary
-                )
-            }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (selectedSubTab == 0) OneUIAccent else Color.Transparent)
+                        .clickable { selectedSubTab = 0 }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Intruders (${intruderLogs.size})",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedSubTab == 0) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selectedSubTab == 0) Color.White else OneUITextSecondary
+                    )
+                }
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(50))
-                    .background(if (selectedSubTab == 1) OneUIAccent else Color.Transparent)
-                    .clickable { selectedSubTab = 1 }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Notifications (${maskedNotifications.size})",
-                    fontSize = 13.sp,
-                    fontWeight = if (selectedSubTab == 1) FontWeight.Bold else FontWeight.Medium,
-                    color = if (selectedSubTab == 1) Color.White else OneUITextSecondary
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(50))
+                        .background(if (selectedSubTab == 1) OneUIAccent else Color.Transparent)
+                        .clickable { selectedSubTab = 1 }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Notifications (${maskedNotifications.size})",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedSubTab == 1) FontWeight.Bold else FontWeight.Medium,
+                        color = if (selectedSubTab == 1) Color.White else OneUITextSecondary
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Content
+        // 3. Tab Content
         if (selectedSubTab == 0) {
-            IntruderLogsContent(
-                logs = intruderLogs,
-                onDelete = onDeleteIntruderLog,
-                onClearAll = onClearIntruderLogs
-            )
+            if (intruderLogs.isEmpty()) {
+                item {
+                    EmptyIntruderPlaceholder()
+                }
+            } else {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Captured Photos (${intruderLogs.size})",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = OneUITextSecondary
+                        )
+
+                        Text(
+                            text = "Clear All",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OneUIDanger,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onClearIntruderLogs() }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                items(intruderLogs, key = { it.id }) { item ->
+                    IntruderLogCard(item = item, onDelete = { onDeleteIntruderLog(item.id) })
+                }
+            }
         } else {
-            MaskedNotificationsContent(
-                notifications = maskedNotifications,
-                onDelete = onDeleteNotification,
-                onClearAll = onClearNotifications
+            if (maskedNotifications.isEmpty()) {
+                item {
+                    EmptyNotificationPlaceholder()
+                }
+            } else {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Intercepted Alerts (${maskedNotifications.size})",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = OneUITextSecondary
+                        )
+
+                        Text(
+                            text = "Clear All",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = OneUIDanger,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onClearNotifications() }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                items(maskedNotifications, key = { it.id }) { item ->
+                    MaskedNotificationCard(
+                        item = item,
+                        onOpenApp = {
+                            try {
+                                val intent = context.packageManager.getLaunchIntentForPackage(item.packageName)
+                                if (intent != null) {
+                                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    context.startActivity(intent)
+                                }
+                            } catch (_: Exception) {}
+                        },
+                        onDelete = { onDeleteNotification(item.id) }
+                    )
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.navigationBarsPadding().height(100.dp))
+        }
+    }
+}
+
+@Composable
+private fun EmptyIntruderPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(OneUISurfaceCard)
+                    .border(1.dp, OneUIDivider, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.CameraAlt,
+                    contentDescription = null,
+                    tint = OneUITextTertiary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Text(
+                text = "No Intruder Attempts",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = OneUITextPrimary
+            )
+
+            Text(
+                text = "When someone enters a wrong PIN or pattern twice, their photo will silently appear here.",
+                fontSize = 13.sp,
+                color = OneUITextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
             )
         }
     }
 }
 
 @Composable
-private fun IntruderLogsContent(
-    logs: List<IntruderLogItem>,
-    onDelete: (String) -> Unit,
-    onClearAll: () -> Unit
-) {
-    if (logs.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 80.dp),
-            contentAlignment = Alignment.Center
+private fun EmptyNotificationPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(OneUISurfaceCard)
+                    .border(1.dp, OneUIDivider, CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(CircleShape)
-                        .background(OneUISurfaceCard)
-                        .border(1.dp, OneUIDivider, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CameraAlt,
-                        contentDescription = null,
-                        tint = OneUITextTertiary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                Text(
-                    text = "No Intruder Attempts",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = OneUITextPrimary
-                )
-
-                Text(
-                    text = "When someone enters a wrong PIN or pattern twice, their photo will silently appear here.",
-                    fontSize = 13.sp,
-                    color = OneUITextSecondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 32.dp)
+                Icon(
+                    imageVector = Icons.Rounded.Notifications,
+                    contentDescription = null,
+                    tint = OneUITextTertiary,
+                    modifier = Modifier.size(32.dp)
                 )
             }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Captured Photos (${logs.size})",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = OneUITextSecondary
-                    )
 
-                    Text(
-                        text = "Clear All",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = OneUIDanger,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onClearAll() }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
+            Text(
+                text = "No Masked Notifications",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = OneUITextPrimary
+            )
 
-            items(logs, key = { it.id }) { item ->
-                IntruderLogCard(item = item, onDelete = { onDelete(item.id) })
-            }
+            Text(
+                text = "Notifications from locked apps are safely intercepted so content never leaks on the lock screen.",
+                fontSize = 13.sp,
+                color = OneUITextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            )
         }
     }
 }

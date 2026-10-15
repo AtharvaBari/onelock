@@ -10,6 +10,9 @@ object LockState {
     @Volatile
     var isLockScreenActive: Boolean = false
 
+    @Volatile
+    var isLaunchingPermissionIntent: Boolean = false
+
     fun unlock(packageName: String) {
         UnlockSessionManager.markUnlocked(packageName)
     }
@@ -23,3 +26,4 @@ object LockState {
         return UnlockSessionManager.isAppUnlocked(packageName, effectiveConfig.timeout)
     }
 }
+

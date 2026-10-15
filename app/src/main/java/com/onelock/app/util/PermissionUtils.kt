@@ -79,6 +79,7 @@ object PermissionUtils {
     }
 
     fun openAccessibilitySettings(context: Context) {
+        com.onelock.app.engine.LockState.isLaunchingPermissionIntent = true
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
@@ -86,6 +87,7 @@ object PermissionUtils {
     }
 
     fun openOverlaySettings(context: Context) {
+        com.onelock.app.engine.LockState.isLaunchingPermissionIntent = true
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:${context.packageName}")
@@ -96,6 +98,7 @@ object PermissionUtils {
     }
 
     fun openNotificationListenerSettings(context: Context) {
+        com.onelock.app.engine.LockState.isLaunchingPermissionIntent = true
         val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
@@ -103,6 +106,7 @@ object PermissionUtils {
     }
 
     fun requestIgnoreBatteryOptimizations(context: Context) {
+        com.onelock.app.engine.LockState.isLaunchingPermissionIntent = true
         try {
             val intent = Intent(
                 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,

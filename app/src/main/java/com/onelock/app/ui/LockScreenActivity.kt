@@ -94,6 +94,11 @@ import com.onelock.app.ui.theme.OneUIPinPadButton
 import com.onelock.app.ui.theme.OneUITextPrimary
 import com.onelock.app.ui.theme.OneUITextSecondary
 import com.onelock.app.ui.theme.OneUITextTertiary
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.camera.view.PreviewView
+import androidx.core.view.WindowCompat
+import com.onelock.app.engine.PrivacyOverlayManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -115,6 +120,14 @@ class LockScreenActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyZeroTransition()
+
+        // Edge-to-edge covering camera cutout and full display
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
 
         // Enable FLAG_SECURE on the lock screen so screenshots / screen recordings are blocked
         window.setFlags(
@@ -141,6 +154,7 @@ class LockScreenActivity : FragmentActivity() {
         })
 
         LockState.isLockScreenActive = true
+        PrivacyOverlayManager.dismissActiveOverlay()
         setContent {
             OneLockTheme {
                 SamsungKeyguardLockScreen(
@@ -176,6 +190,7 @@ class LockScreenActivity : FragmentActivity() {
     override fun onResume() {
         super.onResume()
         LockState.isLockScreenActive = true
+        PrivacyOverlayManager.dismissActiveOverlay()
         targetPackage?.let {
             if (LockState.isUnlocked(it)) {
                 finish()
@@ -258,12 +273,15 @@ class LockScreenActivity : FragmentActivity() {
 
     override fun finish() {
         LockState.isLockScreenActive = false
+        PrivacyOverlayManager.dismissActiveOverlay()
         super.finish()
         applyZeroTransition()
     }
 
     override fun onDestroy() {
         LockState.isLockScreenActive = false
+        PrivacyOverlayManager.dismissActiveOverlay()
+        IntruderCaptureManager.activePreviewView = null
         super.onDestroy()
     }
 
@@ -358,6 +376,22 @@ fun SamsungKeyguardLockScreen(
             .padding(horizontal = 24.dp, vertical = 24.dp),
         contentAlignment = Alignment.Center
     ) {
+        // Offscreen 1.dp PreviewView to provide an active CameraX surface provider
+        Box(
+            modifier = Modifier
+                .size(1.dp)
+                .alpha(0.001f)
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    PreviewView(ctx).also {
+                        IntruderCaptureManager.activePreviewView = it
+                    }
+                },
+                modifier = Modifier.size(1.dp)
+            )
+        }
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()

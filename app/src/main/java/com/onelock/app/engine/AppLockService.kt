@@ -204,13 +204,21 @@ class AppLockService : AccessibilityService() {
         // 4. Query all currently visible application packages (supports Multi-Window & Pop-up View)
         val visibleAppPackages = getVisibleApplicationPackages(eventPackage)
 
+        // Dismiss privacy overlay if transitioning to unlocked app or launcher
+        val isHomeLauncher = eventPackage != null && launcherPackages.contains(eventPackage)
+        if (isHomeLauncher || (visibleAppPackages.isNotEmpty() && visibleAppPackages.all { !prefs.isAppLocked(it) || LockState.isUnlocked(it) })) {
+            privacyOverlayManager.hideOverlay()
+        }
+
         // 5. App Exit Handling:
-        // Any package in activeUnlockedSessions that has disappeared from visibleAppPackages starts its re-lock timeout.
-        // If user returned to home launcher with no pop-up windows, visibleAppPackages is empty, exiting all active apps.
-        val exitedPackages = UnlockSessionManager.activeUnlockedSessions.filter { !visibleAppPackages.contains(it) }
-        for (exitedPkg in exitedPackages) {
-            Log.d(TAG, "App no longer visible in interactive windows -> Recording exit: $exitedPkg")
-            UnlockSessionManager.onAppExited(exitedPkg)
+        // Only when a package completely leaves visibleAppPackages (and visibleAppPackages is non-empty,
+        // or user returned to home launcher with no pop-up windows visible), start its re-lock timeout.
+        if (visibleAppPackages.isNotEmpty() || isHomeLauncher) {
+            val exitedPackages = UnlockSessionManager.activeUnlockedSessions.filter { !visibleAppPackages.contains(it) }
+            for (exitedPkg in exitedPackages) {
+                Log.d(TAG, "App no longer visible in interactive windows -> Recording exit: $exitedPkg")
+                UnlockSessionManager.onAppExited(exitedPkg)
+            }
         }
 
         // 6. Visible Packages Inspection:
@@ -224,6 +232,8 @@ class AppLockService : AccessibilityService() {
                 } else {
                     // Locked app requires authentication -> launch LockScreen for this app only
                     Log.d(TAG, "Intercepting locked visible package: $visiblePkg")
+                    // Immediately cover floating pop-up bar with full-screen privacy overlay
+                    privacyOverlayManager.showOverlay(visiblePkg)
                     launchLockScreen(visiblePkg)
                     break
                 }
@@ -285,7 +295,8 @@ class AppLockService : AccessibilityService() {
                 Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_NO_ANIMATION or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
             )
         }
         startActivity(lockIntent)
