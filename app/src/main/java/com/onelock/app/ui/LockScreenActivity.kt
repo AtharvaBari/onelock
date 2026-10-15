@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -86,6 +87,7 @@ import com.onelock.app.data.GlobalLockConfig
 import com.onelock.app.data.LockType
 import com.onelock.app.engine.IntruderCaptureManager
 import com.onelock.app.engine.LockState
+import com.onelock.app.engine.UnlockSessionManager
 import com.onelock.app.ui.theme.OneLockTheme
 import com.onelock.app.ui.theme.OneUIAccent
 import com.onelock.app.ui.theme.OneUIDanger
@@ -107,14 +109,15 @@ class LockScreenActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_PACKAGE_NAME = "extra_target_package_name"
+        private const val TAG = "LockScreenActivity"
     }
 
-    private var targetPackage: String? = null
+    private var targetPackage by mutableStateOf<String?>(null)
     private var isBiometricShowing = false
-    private var appName: String = "Locked App"
-    private var appIconDrawable: Drawable? = null
-    private lateinit var effectiveConfig: EffectiveLockConfig
-    private lateinit var globalConfig: GlobalLockConfig
+    private var appName by mutableStateOf("Locked App")
+    private var appIconDrawable by mutableStateOf<Drawable?>(null)
+    private var effectiveConfig by mutableStateOf<EffectiveLockConfig?>(null)
+    private var globalConfig by mutableStateOf<GlobalLockConfig?>(null)
     private var failedAttempts = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -135,16 +138,13 @@ class LockScreenActivity : FragmentActivity() {
             WindowManager.LayoutParams.FLAG_SECURE
         )
 
-        targetPackage = intent.getStringExtra(EXTRA_PACKAGE_NAME)
-        if (targetPackage == null || LockState.isUnlocked(targetPackage!!)) {
+        val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME)
+        if (pkg == null || LockState.isUnlocked(pkg)) {
             finish()
             return
         }
 
-        loadTargetAppMetadata(targetPackage!!)
-        val prefs = OneLockApp.preferencesManager
-        effectiveConfig = prefs.getEffectiveLockConfig(targetPackage!!)
-        globalConfig = prefs.getGlobalConfig()
+        setupTargetApp(pkg)
 
         // Override back button so user is redirected to Home screen instead of bypassing lock
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -153,43 +153,69 @@ class LockScreenActivity : FragmentActivity() {
             }
         })
 
-        LockState.isLockScreenActive = true
+        LockState.isLockScreenShowing = true
         PrivacyOverlayManager.dismissActiveOverlay()
         setContent {
             OneLockTheme {
-                SamsungKeyguardLockScreen(
-                    appName = appName,
-                    appIcon = appIconDrawable,
-                    effectiveConfig = effectiveConfig,
-                    globalConfig = globalConfig,
-                    onVerified = {
-                        unlockAndExit()
-                    },
-                    onWrongAttempt = {
-                        failedAttempts++
-                        if (failedAttempts >= 2) {
-                            IntruderCaptureManager.captureIntruderSelfie(
-                                context = this,
-                                lifecycleOwner = this,
-                                targetPackage = targetPackage!!,
-                                appName = appName
-                            )
+                val currentConfig = effectiveConfig
+                val currentGlobal = globalConfig
+                if (currentConfig != null && currentGlobal != null) {
+                    SamsungKeyguardLockScreen(
+                        appName = appName,
+                        appIcon = appIconDrawable,
+                        effectiveConfig = currentConfig,
+                        globalConfig = currentGlobal,
+                        onVerified = {
+                            onUnlockSuccess()
+                        },
+                        onWrongAttempt = {
+                            failedAttempts++
+                            if (failedAttempts >= 2) {
+                                targetPackage?.let { p ->
+                                    IntruderCaptureManager.captureIntruderSelfie(
+                                        context = this@LockScreenActivity,
+                                        lifecycleOwner = this@LockScreenActivity,
+                                        targetPackage = p,
+                                        appName = appName
+                                    )
+                                }
+                            }
+                        },
+                        onTriggerBiometrics = {
+                            showBiometricPrompt()
+                        },
+                        onCancelToHome = {
+                            exitToHomeScreen()
                         }
-                    },
-                    onTriggerBiometrics = {
-                        showBiometricPrompt()
-                    },
-                    onCancelToHome = {
-                        exitToHomeScreen()
-                    }
-                )
+                    )
+                }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        applyZeroTransition()
+        val newPkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return
+        if (newPkg == targetPackage) return
+        if (LockState.isUnlocked(newPkg)) {
+            finish()
+            return
+        }
+        setupTargetApp(newPkg)
+        LockState.isLockScreenShowing = true
+        PrivacyOverlayManager.dismissActiveOverlay()
+
+        val config = effectiveConfig
+        if (config != null && config.biometricEnabled && canUseBiometrics() && !isBiometricShowing) {
+            showBiometricPrompt()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        LockState.isLockScreenActive = true
+        LockState.isLockScreenShowing = true
         PrivacyOverlayManager.dismissActiveOverlay()
         targetPackage?.let {
             if (LockState.isUnlocked(it)) {
@@ -200,9 +226,20 @@ class LockScreenActivity : FragmentActivity() {
         }
 
         // Auto trigger biometric prompt if available and enabled for this app
-        if (effectiveConfig.biometricEnabled && canUseBiometrics()) {
+        val config = effectiveConfig
+        if (config != null && config.biometricEnabled && canUseBiometrics() && !isBiometricShowing) {
             showBiometricPrompt()
         }
+    }
+
+    private fun setupTargetApp(pkg: String) {
+        targetPackage = pkg
+        LockState.currentlyLockingPackage = pkg
+        loadTargetAppMetadata(pkg)
+        val prefs = OneLockApp.preferencesManager
+        effectiveConfig = prefs.getEffectiveLockConfig(pkg)
+        globalConfig = prefs.getGlobalConfig()
+        failedAttempts = 0
     }
 
     private fun loadTargetAppMetadata(pkg: String) {
@@ -224,13 +261,14 @@ class LockScreenActivity : FragmentActivity() {
     }
 
     private fun showBiometricPrompt() {
+        val config = effectiveConfig ?: return
         if (isBiometricShowing) return
         val executor = ContextCompat.getMainExecutor(this)
         val prompt = BiometricPrompt(this, executor, object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
                 isBiometricShowing = false
-                unlockAndExit()
+                onUnlockSuccess()
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -246,22 +284,35 @@ class LockScreenActivity : FragmentActivity() {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Unlock $appName")
             .setSubtitle("Confirm fingerprint to access")
-            .setNegativeButtonText("Use ${effectiveConfig.lockType.displayName}")
+            .setNegativeButtonText("Use ${config.lockType.displayName}")
             .build()
 
         isBiometricShowing = true
-        prompt.authenticate(promptInfo)
+        try {
+            prompt.authenticate(promptInfo)
+        } catch (e: Exception) {
+            Log.e(TAG, "Biometric authentication failed to start", e)
+            isBiometricShowing = false
+        }
     }
 
-    private fun unlockAndExit() {
-        targetPackage?.let {
-            LockState.unlock(it)
+    private fun onUnlockSuccess() {
+        val pkg = targetPackage
+        if (pkg != null) {
+            UnlockSessionManager.markUnlocked(pkg)
         }
+        LockState.lastUnlockTimestamp = System.currentTimeMillis()
+        LockState.isLockScreenShowing = false
+        LockState.currentlyLockingPackage = null
+        PrivacyOverlayManager.dismissActiveOverlay()
         finish()
         applyZeroTransition()
     }
 
     private fun exitToHomeScreen() {
+        LockState.isLockScreenShowing = false
+        LockState.currentlyLockingPackage = null
+        PrivacyOverlayManager.dismissActiveOverlay()
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -271,15 +322,25 @@ class LockScreenActivity : FragmentActivity() {
         applyZeroTransition()
     }
 
+    override fun onStop() {
+        super.onStop()
+        if (isFinishing) {
+            LockState.isLockScreenShowing = false
+            LockState.currentlyLockingPackage = null
+        }
+    }
+
     override fun finish() {
-        LockState.isLockScreenActive = false
+        LockState.isLockScreenShowing = false
+        LockState.currentlyLockingPackage = null
         PrivacyOverlayManager.dismissActiveOverlay()
         super.finish()
         applyZeroTransition()
     }
 
     override fun onDestroy() {
-        LockState.isLockScreenActive = false
+        LockState.isLockScreenShowing = false
+        LockState.currentlyLockingPackage = null
         PrivacyOverlayManager.dismissActiveOverlay()
         IntruderCaptureManager.activePreviewView = null
         super.onDestroy()

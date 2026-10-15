@@ -8,13 +8,24 @@ import com.onelock.app.OneLockApp
 object LockState {
 
     @Volatile
-    var isLockScreenActive: Boolean = false
+    var isLockScreenShowing: Boolean = false
+
+    var isLockScreenActive: Boolean
+        get() = isLockScreenShowing
+        set(value) { isLockScreenShowing = value }
+
+    @Volatile
+    var currentlyLockingPackage: String? = null
+
+    @Volatile
+    var lastUnlockTimestamp: Long = 0L
 
     @Volatile
     var isLaunchingPermissionIntent: Boolean = false
 
     fun unlock(packageName: String) {
         UnlockSessionManager.markUnlocked(packageName)
+        lastUnlockTimestamp = System.currentTimeMillis()
     }
 
     fun resetUnlocked(@Suppress("UNUSED_PARAMETER") reason: String = "") {
@@ -22,8 +33,7 @@ object LockState {
     }
 
     fun isUnlocked(packageName: String): Boolean {
-        val effectiveConfig = OneLockApp.preferencesManager.getEffectiveLockConfig(packageName)
-        return UnlockSessionManager.isAppUnlocked(packageName, effectiveConfig.timeout)
+        return UnlockSessionManager.isAppUnlocked(packageName)
     }
 }
 

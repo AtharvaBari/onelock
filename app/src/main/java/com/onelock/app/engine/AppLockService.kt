@@ -170,6 +170,12 @@ class AppLockService : AccessibilityService() {
             return
         }
 
+        // CRITICAL RULE: If lock screen is actively showing or event belongs to OneLock itself,
+        // completely freeze and ignore to avoid self-locking, multi-window ping-pong, or exit loops!
+        if (LockState.isLockScreenShowing || eventPackage == applicationContext.packageName) {
+            return
+        }
+
         val prefs = OneLockApp.preferencesManager
         val shield = prefs.getShieldConfig()
 
@@ -180,7 +186,7 @@ class AppLockService : AccessibilityService() {
                 (eventPackage != null && launcherPackages.contains(eventPackage) && className.contains("TaskSwitch", ignoreCase = true))
 
         if (isRecentsTriggered && shield.recentAppsBlurEnabled) {
-            val activeLocked = UnlockSessionManager.activeUnlockedSessions.firstOrNull { prefs.isAppLocked(it) }
+            val activeLocked = UnlockSessionManager.activeUnlockedPackages.keys.firstOrNull { prefs.isAppLocked(it) }
             activeLocked?.let { privacyOverlayManager.showOverlay(it) }
         } else if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !isRecentsTriggered) {
             privacyOverlayManager.hideOverlay()
@@ -203,21 +209,44 @@ class AppLockService : AccessibilityService() {
 
         // 4. Query all currently visible application packages (supports Multi-Window & Pop-up View)
         val visibleAppPackages = getVisibleApplicationPackages(eventPackage)
+        val appWindows = try {
+            windows?.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION } ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        val isMultiWindow = appWindows.size > 1 || visibleAppPackages.size > 1
+        val isHomeLauncher = eventPackage != null && launcherPackages.contains(eventPackage)
 
         // Dismiss privacy overlay if transitioning to unlocked app or launcher
-        val isHomeLauncher = eventPackage != null && launcherPackages.contains(eventPackage)
         if (isHomeLauncher || (visibleAppPackages.isNotEmpty() && visibleAppPackages.all { !prefs.isAppLocked(it) || LockState.isUnlocked(it) })) {
             privacyOverlayManager.hideOverlay()
         }
 
+        val now = System.currentTimeMillis()
+        val isFreezeActive = LockState.isLockScreenShowing || (now - LockState.lastUnlockTimestamp < 2000L)
+
         // 5. App Exit Handling:
-        // Only when a package completely leaves visibleAppPackages (and visibleAppPackages is non-empty,
-        // or user returned to home launcher with no pop-up windows visible), start its re-lock timeout.
-        if (visibleAppPackages.isNotEmpty() || isHomeLauncher) {
-            val exitedPackages = UnlockSessionManager.activeUnlockedSessions.filter { !visibleAppPackages.contains(it) }
-            for (exitedPkg in exitedPackages) {
-                Log.d(TAG, "App no longer visible in interactive windows -> Recording exit: $exitedPkg")
-                UnlockSessionManager.onAppExited(exitedPkg)
+        // Freeze session exits if lock screen is showing or recent unlock occurred (<2000ms)
+        if (!isFreezeActive) {
+            if (isMultiWindow) {
+                // In multi-window mode, keep ALL unlocked apps in activeUnlockedPackages
+                // and refresh their sessions so switching focus back and forth never asks for credentials
+                UnlockSessionManager.refreshActiveSessions()
+            } else if (isHomeLauncher && visibleAppPackages.isEmpty()) {
+                // User explicitly returned to the Home Screen with no floating/pop-up windows visible
+                val activeList = UnlockSessionManager.activeUnlockedPackages.keys.toList()
+                for (pkg in activeList) {
+                    Log.d(TAG, "Home launcher active with no floating windows -> Recording exit: $pkg")
+                    UnlockSessionManager.onAppExited(pkg)
+                }
+            } else if (visibleAppPackages.isNotEmpty()) {
+                // Single-window mode: user switched away to another app
+                val exitedPackages = UnlockSessionManager.activeUnlockedPackages.keys.filter { !visibleAppPackages.contains(it) }
+                for (exitedPkg in exitedPackages) {
+                    Log.d(TAG, "App no longer visible in interactive windows -> Recording exit: $exitedPkg")
+                    UnlockSessionManager.onAppExited(exitedPkg)
+                }
             }
         }
 
@@ -282,12 +311,23 @@ class AppLockService : AccessibilityService() {
     }
 
     private fun launchLockScreen(packageName: String) {
-        val now = System.currentTimeMillis()
-        if (LockState.isLockScreenActive && lastLockLaunchPkg == packageName && now - lastLockLaunchTime < 1000L) {
+        if (UnlockSessionManager.isAppUnlocked(packageName)) {
+            Log.d(TAG, "launchLockScreen: $packageName is already unlocked, skipping")
             return
         }
+        if (LockState.isLockScreenShowing && LockState.currentlyLockingPackage == packageName) {
+            Log.d(TAG, "launchLockScreen: Lock screen already showing for $packageName, skipping")
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        if (lastLockLaunchPkg == packageName && now - lastLockLaunchTime < 800L) {
+            return
+        }
+
         lastLockLaunchPkg = packageName
         lastLockLaunchTime = now
+        LockState.currentlyLockingPackage = packageName
 
         val lockIntent = Intent(this, LockScreenActivity::class.java).apply {
             putExtra(LockScreenActivity.EXTRA_PACKAGE_NAME, packageName)
