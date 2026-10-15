@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.55"
+        android:scaleY="0.55"
+        android:translateX="24.3"
+        android:translateY="24.3">
+        <!-- Rounded background badge -->
+        <path
+            android:fillColor="#17171A"
+            android:pathData="M20,10 L88,10 A10,10 0 0,1 98,20 L98,88 A10,10 0 0,1 88,98 L20,98 A10,10 0 0,1 10,88 L10,20 A10,10 0 0,1 20,10 Z"/>
+        <!-- One UI Blue Lock Shackle -->
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#387AFF"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:pathData="M38,44 V34 A16,16 0 0,1 70,34 V44"/>
+        <!-- Lock Body -->
+        <path
+            android:fillColor="#387AFF"
+            android:pathData="M32,44 H76 A6,6 0 0,1 82,50 V76 A6,6 0 0,1 76,82 H32 A6,6 0 0,1 26,76 V50 A6,6 0 0,1 32,44 Z"/>
+        <!-- Keyhole dot -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M54,58 A4,4 0 1,1 54,57.99 Z"/>
+        <!-- Keyhole slot -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M52,60 H56 L57,70 H51 Z"/>
+    </group>
+</vector>

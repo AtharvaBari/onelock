@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">OneLock</string>
+    <string name="accessibility_service_name">OneLock App Protection</string>
+    <string name="accessibility_service_description">Monitors active app window changes in real time to lock secured apps immediately. Requires no internet access or keylogging.</string>
+</resources>
