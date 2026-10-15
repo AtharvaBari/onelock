@@ -45,10 +45,11 @@ class PrivacyOverlayManager(private val context: Context) {
 
     init {
         currentInstance = this
+        hideOverlay()
     }
 
     fun showOverlay(targetPackage: String) {
-        if (!Settings.canDrawOverlays(context) || windowManager == null) {
+        if (!Settings.canDrawOverlays(context) || windowManager == null || LockState.isLockScreenShowing) {
             return
         }
 
@@ -142,8 +143,15 @@ class PrivacyOverlayManager(private val context: Context) {
             val view = overlayView
             if (view != null && windowManager != null) {
                 try {
-                    windowManager.removeView(view)
+                    if (view.isAttachedToWindow) {
+                        windowManager.removeViewImmediate(view)
+                    } else {
+                        windowManager.removeView(view)
+                    }
                 } catch (e: Exception) {
+                    try {
+                        windowManager.removeView(view)
+                    } catch (_: Exception) {}
                     Log.e(TAG, "Error removing privacy overlay view", e)
                 } finally {
                     overlayView = null

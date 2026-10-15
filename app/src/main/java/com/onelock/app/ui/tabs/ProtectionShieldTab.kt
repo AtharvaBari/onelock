@@ -118,13 +118,13 @@ fun ProtectionShieldTab(
             )
         }
 
-        // Module 2: Recent Apps Blur / Privacy Shield
+        // Module 2: Vault & Screenshot Shield (FLAG_SECURE)
         item {
             ShieldModuleCard(
                 icon = Icons.Rounded.Layers,
                 iconTint = OneUIAccent,
-                title = "Recent Apps Privacy Shield",
-                description = "Automatically masks chat contents and sensitive app screens with a frosted privacy overlay in the Android multitasking overview.",
+                title = "Vault & Screenshot Shield",
+                description = "Protects OneLock dashboard, vault logs, and authentication screens from being screenshotted, recorded, or previewed in recent apps via hardware FLAG_SECURE protection.",
                 isChecked = shieldConfig.recentAppsBlurEnabled,
                 onCheckedChange = { checked ->
                     onSaveShieldConfig(shieldConfig.copy(recentAppsBlurEnabled = checked))

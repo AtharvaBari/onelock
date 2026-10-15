@@ -57,6 +57,7 @@ class AppLockService : AccessibilityService() {
         super.onServiceConnected()
         isServiceRunning = true
         privacyOverlayManager = PrivacyOverlayManager(this)
+        privacyOverlayManager.hideOverlay()
 
         try {
             val info = serviceInfo ?: AccessibilityServiceInfo()
@@ -179,17 +180,16 @@ class AppLockService : AccessibilityService() {
         val prefs = OneLockApp.preferencesManager
         val shield = prefs.getShieldConfig()
 
-        // 1. Check for Recents / Overview state for Recent Apps Privacy Shield Blur
+        // 1. Recents / Multitasking Overview check:
+        // Opening the Recent Apps switcher must NEVER show an overlay or block the screen.
         val className = event.className?.toString() ?: ""
         val isRecentsTriggered = className.contains("Recents", ignoreCase = true) ||
                 className.contains("Overview", ignoreCase = true) ||
                 (eventPackage != null && launcherPackages.contains(eventPackage) && className.contains("TaskSwitch", ignoreCase = true))
 
-        if (isRecentsTriggered && shield.recentAppsBlurEnabled) {
-            val activeLocked = UnlockSessionManager.activeUnlockedPackages.keys.firstOrNull { prefs.isAppLocked(it) }
-            activeLocked?.let { privacyOverlayManager.showOverlay(it) }
-        } else if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !isRecentsTriggered) {
+        if (isRecentsTriggered) {
             privacyOverlayManager.hideOverlay()
+            return
         }
 
         // 2. Anti-Tamper & Force-Stop Protection in system settings / installer
